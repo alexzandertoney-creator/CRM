@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs/dayjs.min.js"></script>
+  <script src="/js/demoData.js"></script>
+
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-50 p-6">
+  <h1 class="text-3xl font-bold mb-6 text-center text-gray-800">Customer Dashboard</h1>
+
+  <!-- Toolbar Buttons -->
+<div id="devTools" style="position: fixed; bottom: 10px; right: 10px;z-index: 999; background: #eee; padding: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.3); font-family: sans-serif;">
+  <h4 style="margin: 0 0 5px 0;">Dev Tools</h4>
+  <button id="loadDemoDataBtn">Load Demo Data</button>
+  <button id="clearLocalStorageBtn">Clear All Data</button>
+</div>
+  <div class="flex justify-between items-center mb-4">
+  <h2 class="text-xl font-semibold text-gray-700"></h2>
+  <div class="flex gap-2">
+    <a href="email-templates.html" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg">
+  ✉️ Email Templates
+</a>
+
+    <a href="analytics.html" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+      📊 View Analytics
+    </a>
+    <button id="openAddCustomer" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+      + Add New Customer
+    </button>
+  </div>
+</div>
+<!-- Summary Stats -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div class="bg-white shadow rounded-lg p-4 text-center">
+    <h3 class="text-sm font-semibold text-gray-600">Total Customers</h3>
+    <p id="totalCustomers" class="text-2xl font-bold text-gray-800 mt-1">0</p>
+  </div>
+
+  <div class="bg-white shadow rounded-lg p-4 text-center">
+    <h3 class="text-sm font-semibold text-gray-600">Actions Due Today</h3>
+    <p id="actionsToday" class="text-2xl font-bold text-blue-600 mt-1">0</p>
+  </div>
+
+  <div class="bg-white shadow rounded-lg p-4 text-center">
+    <h3 class="text-sm font-semibold text-gray-600">Upcoming This Week</h3>
+    <p id="upcomingWeek" class="text-2xl font-bold text-green-600 mt-1">0</p>
+  </div>
+</div>
+
+  <!-- Stage Filter Toolbar -->
+  <div class="flex items-center justify-between bg-gray-100 p-4 rounded-lg mb-6">
+    <div class="flex items-center gap-2">
+      <span class="font-semibold text-gray-700">Filter by Stage:</span>
+      <select id="stageFilter" class="border rounded-lg p-2"></select>
+      <button id="clearFilters" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1 rounded">
+        Clear Filters
+      </button>
+    </div>
+    <button id="manageStagesBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-3 py-1 rounded">
+      ⚙ Manage/Add Stages
+    </button>
+  </div>
+  <!-- Customer Table -->
+  <table class="w-full border-collapse bg-white shadow-md rounded-lg overflow-hidden">
+    <thead class="bg-gray-200 text-gray-700">
+  <tr>
+    <th class="p-3 cursor-pointer" onclick="changeSort('id')">ID</th>
+    <th class="p-2 text-left cursor-pointer" onclick="changeSort('companyName')">Company</th>
+    <th class="p-2 text-left cursor-pointer" onclick="changeSort('mainContact')">Main Contact</th>
+    <th class="p-3 cursor-pointer" onclick="changeSort('nextStep')">Next Step</th>
+    <th class="p-3 cursor-pointer" onclick="changeSort('nextActionDate')">Next Action Date</th>
+    <th class="p-3">Stage</th>
+    <th class="p-3">View</th>
+  </tr>
+</thead>
+
+    <tbody id="customerTable"></tbody>
+  </table>
+
+  <!-- Add Customer Modal -->
+  <div id="addCustomerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center p-4">
+    <div class="bg-white rounded-lg shadow-lg p-6 w-96 max-w-full relative">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Add New Customer</h2>
+
+      <input id="newCustomerCompany" type="text" placeholder="Company Name" class="border rounded-lg p-2 flex-1 min-w-[150px] mb-2" />
+      <input id="newCustomerMainContact" type="text" placeholder="Main Contact" class="border rounded-lg p-2 flex-1 min-w-[150px] mb-2" />
+      <input id="newCustomerPhone" type="text" placeholder="Phone Number" class="border rounded-lg p-2 flex-1 min-w-[150px] mb-2" />
+      <input id="newCustomerEmail" type="email" placeholder="Email" class="border rounded-lg p-2 w-full mb-2" />
+      <input id="newCustomerNextStep" type="text" placeholder="Next Step" class="border rounded-lg p-2 w-full mb-2" />
+      <input id="newCustomerNextActionDate" type="date" placeholder="Next Action Date" class="border rounded-lg p-2 w-full mb-2" />
+      <select id="newCustomerStage" class="border rounded-lg p-2 w-full mb-4"></select>
+
+      <div class="flex justify-end gap-2">
+        <button id="cancelAddCustomer" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+        <button id="saveAddCustomer" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">Save</button>
+      </div>
+    </div>
+  </div>
+ <!-- Contact Info Modal -->
+<div id="contactModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+  <div class="bg-white rounded-lg p-6 w-80 shadow-lg relative">
+    <button id="closeContactModal" class="absolute top-2 right-2 text-gray-500 hover:text-black text-xl">×</button>
+    <h2 class="text-xl font-semibold mb-3 text-gray-800" id="contactName"></h2>
+    
+    <p class="text-gray-700 flex items-center gap-2">
+      <strong>Email:</strong>
+      <span id="contactEmail" class="text-blue-600 break-all"></span>
+      <button onclick="copyToClipboard('contactEmail')" class="text-gray-500 hover:text-blue-600">📋</button>
+    </p>
+    
+    <p class="text-gray-700 flex items-center gap-2">
+      <strong>Phone:</strong>
+      <span id="contactPhone" class="text-gray-800 break-all"></span>
+      <button onclick="copyToClipboard('contactPhone')" class="text-gray-500 hover:text-blue-600">📋</button>
+    </p>
+
+    <p id="copyMessage" class="text-green-600 text-sm mt-2 hidden">Copied!</p>
+  </div>
+</div>
+
+<script>
+const API_URL = "http://localhost:8080/api/customers";
+const STAGES_API = "http://localhost:8080/api/stages";
+
+let customers = [];
+let stages = [];
+let sortBy = "id";
+let order = "asc";
+
+// ---------------- Dashboard Stats ----------------
+function updateDashboardStats() {
+    const total = customers.length;
+    const today = dayjs().format("YYYY-MM-DD");
+
+    const actionsToday = customers.filter(c => c.nextActionDate === today).length;
+    const upcomingWeek = customers.filter(c => {
+        if (!c.nextActionDate) return false;
+        const date = dayjs(c.nextActionDate);
+        return date.isAfter(today) && date.isBefore(dayjs().add(7, 'day'));
+    }).length;
+
+    document.getElementById("totalCustomers").textContent = total;
+    document.getElementById("actionsToday").textContent = actionsToday;
+    document.getElementById("upcomingWeek").textContent = upcomingWeek;
+}
+
+// ---------------- Clipboard ----------------
+function copyToClipboard(elementId) {
+    const text = document.getElementById(elementId).textContent.trim();
+    if (!text) return;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const msg = document.getElementById("copyMessage");
+        msg.classList.remove("hidden");
+        msg.textContent = "Copied!";
+        setTimeout(() => msg.classList.add("hidden"), 1500);
+    });
+}
+
+// ---------------- Demo Data Utilities ----------------
+const demoDataFallback = {
+    companies: [],
+    contacts: [],
+    notes: [],
+    emailTemplates: [],
+    stages: [{ id: 1, name: "Lead" }]
+};
+const demoData = window.demoData || demoDataFallback;
+
+async function loadDemoData() {
+    const dataCopy = JSON.parse(JSON.stringify(demoData));
+    
+    try {
+        
+        
+        // ------------------ 1. Add Stages ------------------
+        for (const stage of dataCopy.stages) {
+            if (!stages.find(s => s.name === stage.name)) {
+                await axios.post(STAGES_API, stage);
+            }
+        }
+
+        await fetchStages();
+
+        // ------------------ 2. Add Email Templates ------------------
+        const existingTemplates = (await axios.get("/api/email-templates")).data;
+
+        for (const template of dataCopy.emailTemplates) {
+            if (!existingTemplates.find(t => t.name === template.name)) {
+                await axios.post("/api/email-templates", template);
+            }
+        }
+
+        // ------------------ 3. Add Customers + Contacts + Notes ------------------
+        for (const demoCompany of dataCopy.companies) {
+
+            const stageObj =
+                stages.find(s => s.name === demoCompany.stage.name) || stages[0];
+
+            // Create the customer
+            const customerRes = await axios.post(API_URL, {
+                ...demoCompany,
+                stage: stageObj
+            });
+
+            const createdCustomer = customerRes.data;
+            const customerId = createdCustomer.id;
+
+            // 3a. Add CONTACTS linked to this customer
+            for (const contact of dataCopy.contacts) {
+    await axios.post(`${API_URL}/${customerId}/contacts`, contact);
+
+    };
+            // 3b. Add NOTES linked to this customer
+            for (const note of dataCopy.notes) {
+    await axios.post(`${API_URL}/${customerId}/notes`, note);
+    };
+        }
+
+        // ------------------ 4. Refresh Data ------------------
+        await fetchCustomers();
+        alert("Demo data added with customers, contacts, notes, stages, and templates!");
+
+    } catch (err) {
+        console.error("Error loading demo data:", err);
+        alert("Error adding demo data — check console or backend logs.");
+    }
+}
+
+
+async function clearAllData() {
+    if (!confirm("Are you sure you want to permanently delete ALL customers, stages, and email templates?")) return;
+
+    try {
+        // 1. Delete all customers
+        for (const cust of customers) {
+            await axios.delete(`${API_URL}/${cust.id}`);
+        }
+        customers = [];
+
+        // 2. Delete all stages
+        for (const stage of stages) {
+            await axios.delete(`${STAGES_API}/${stage.id}`);
+        }
+        stages = [];
+
+        // 3. Delete all email templates
+        const templatesRes = await axios.get("/api/email-templates");
+        const templates = templatesRes.data;
+        for (const template of templates) {
+            await axios.delete(`/api/email-templates/${template.id}`);
+        }
+
+        // 4. Update UI
+        renderTable(customers);
+        renderStageDropdown();
+        renderStageOptions();
+        updateDashboardStats();
+
+        alert("All customers, stages, and email templates deleted permanently!");
+    } catch (err) {
+        console.error("Error clearing all data:", err);
+        alert("Error deleting data — check backend logs.");
+    }
+    
+}
+
+
+// ---------------- Fetch Data from Backend ----------------
+async function fetchStages() {
+    try {
+        const res = await axios.get(STAGES_API);
+        stages = res.data;
+        renderStageDropdown();
+        renderStageOptions();
+    } catch (err) {
+        console.error("Error fetching stages:", err);
+    }
+}
+
+async function fetchCustomers() {
+    try {
+        const response = await axios.get(`${API_URL}/paged`, { params: { page: 0, size: 150, sortBy, order } });
+        customers = response.data.content;
+        renderTable(customers);
+        updateDashboardStats();
+    } catch (err) {
+        console.error("Error fetching customers:", err);
+    }
+}
+
+// ---------------- Add Customer ----------------
+function addCustomer() {
+    const companyName = document.getElementById("newCustomerCompany").value.trim();
+    const mainContact = document.getElementById("newCustomerMainContact").value.trim();
+    const phoneNumber = document.getElementById("newCustomerPhone").value.trim();
+    const email = document.getElementById("newCustomerEmail").value.trim();
+    const nextStep = document.getElementById("newCustomerNextStep").value.trim();
+    const nextActionDate = document.getElementById("newCustomerNextActionDate").value;
+    const stageId = parseInt(document.getElementById("newCustomerStage").value);
+    const stageObj = stages.find(s => s.id === stageId);
+
+    if (!mainContact || !email) {
+        alert("Main contact and email are required!");
+        return;
+    }
+
+    const newCustomer = {
+        companyName,
+        mainContact,
+        phoneNumber,
+        email,
+        nextStep,
+        nextActionDate,
+        stage: stageObj,
+        contacts: [],
+        notes: []
+    };
+
+    axios.post(API_URL, newCustomer)
+        .then(() => fetchCustomers())
+        .catch(err => console.error("Error adding customer:", err));
+
+    document.getElementById("addCustomerModal").classList.add("hidden");
+    document.getElementById("newCustomerCompany").value = "";
+    document.getElementById("newCustomerMainContact").value = "";
+    document.getElementById("newCustomerPhone").value = "";
+    document.getElementById("newCustomerEmail").value = "";
+    document.getElementById("newCustomerNextStep").value = "";
+    document.getElementById("newCustomerNextActionDate").value = "";
+}
+
+// ---------------- Update Customer ----------------
+async function updateCustomerField(id, field, value) {
+    const customer = customers.find(c => c.id === id);
+    if (!customer) return;
+
+    if (field === "stage") {
+        customer.stage = stages.find(s => s.id === parseInt(value));
+    } else {
+        customer[field] = value;
+    }
+
+    try {
+        await axios.put(`${API_URL}/${id}`, customer);
+    } catch (err) {
+        console.error("Error updating customer:", err.response?.data || err);
+    }
+
+    renderTable(customers);
+    updateDashboardStats();
+}
+
+// ---------------- Render UI ----------------
+function renderTable(data) {
+    const tbody = document.getElementById("customerTable");
+    tbody.innerHTML = "";
+
+    data.forEach(cust => {
+        const custStageId = cust.stage?.id || stages[0]?.id;
+        const row = document.createElement("tr");
+        row.className = "border-b hover:bg-gray-100";
+        row.innerHTML = `
+            <td class="p-3">${cust.id}</td>
+            <td class="p-2">${cust.companyName || '-'}</td>
+            <td class="p-2 text-blue-600 hover:underline cursor-pointer contact-cell">${cust.mainContact || '-'}</td>
+            <td class="p-3">
+                <input type="text" value="${cust.nextStep || ''}" class="border p-1 rounded w-full"
+                       onchange="updateCustomerField(${cust.id}, 'nextStep', this.value)" />
+            </td>
+            <td class="p-3">
+                <input type="date" value="${cust.nextActionDate || ''}" class="border p-1 rounded w-full"
+                       onchange="updateCustomerField(${cust.id}, 'nextActionDate', this.value)" />
+            </td>
+            <td class="p-3">
+                <select class="border p-1 rounded w-full" onchange="updateCustomerField(${cust.id}, 'stage', this.value)">
+                    ${stages.map(stage => `<option value="${stage.id}" ${custStageId === stage.id ? "selected" : ""}>${stage.name}</option>`).join("")}
+                </select>
+            </td>
+            <td class="p-3">
+                <a href="customer.html?id=${cust.id}" class="text-blue-600 hover:underline">View</a>
+            </td>
+        `;
+        row.querySelector(".contact-cell").addEventListener("click", () => showContactPopup(cust));
+        tbody.appendChild(row);
+    });
+}
+
+function renderStageDropdown() {
+    const select = document.getElementById("stageFilter");
+    select.innerHTML = `<option value="">All Stages</option>`;
+    stages.forEach(s => select.innerHTML += `<option value="${s.id}">${s.name}</option>`);
+}
+
+function renderStageOptions() {
+    const select = document.getElementById("newCustomerStage");
+    select.innerHTML = "";
+    stages.forEach(s => select.innerHTML += `<option value="${s.id}">${s.name}</option>`);
+}
+
+// ---------------- Stage Management ----------------
+async function openStageManager() {
+    const newStageNames = prompt("Edit stages (comma separated):", stages.map(s => s.name).join(", "));
+    if (newStageNames === null) return;
+
+    const names = newStageNames.split(",").map(s => s.trim()).filter(Boolean);
+    const existingNames = stages.map(s => s.name);
+
+    try {
+        // Delete removed stages
+        const toDelete = stages.filter(s => !names.includes(s.name));
+        for (const stage of toDelete) await axios.delete(`${STAGES_API}/${stage.id}`);
+
+        // Add new stages
+        for (const name of names) {
+            if (!existingNames.includes(name)) await axios.post(STAGES_API, { name });
+        }
+
+        await fetchStages();
+        renderTable(customers);
+        alert("Stages updated successfully!");
+    } catch (err) {
+        console.error("Error updating stages:", err);
+        alert("Error updating stages — check backend logs.");
+    }
+}
+
+// ---------------- Contact Modal ----------------
+function showContactPopup(customer) {
+    document.getElementById("contactName").textContent = customer.mainContact || "N/A";
+    document.getElementById("contactEmail").textContent = customer.email || "N/A";
+    document.getElementById("contactPhone").textContent = customer.phoneNumber || "N/A";
+    document.getElementById("contactModal").classList.remove("hidden");
+}
+
+// ---------------- Sorting ----------------
+function changeSort(field) {
+    if (sortBy === field) order = order === "asc" ? "desc" : "asc";
+    else { sortBy = field; order = "asc"; }
+    fetchCustomers();
+}
+
+// ---------------- Filters ----------------
+document.getElementById("stageFilter").addEventListener("change", e => {
+    const selectedStageId = e.target.value;
+    if (!selectedStageId) renderTable(customers);
+    else renderTable(customers.filter(c => (c.stage?.id || stages[0]?.id) == selectedStageId));
+});
+document.getElementById("clearFilters").addEventListener("click", () => {
+    document.getElementById("stageFilter").value = "";
+    renderTable(customers);
+});
+
+// ---------------- Event Listeners ----------------
+document.getElementById('loadDemoDataBtn').addEventListener('click', loadDemoData);
+document.getElementById('clearLocalStorageBtn').addEventListener('click', clearAllData);
+document.getElementById("manageStagesBtn").addEventListener("click", openStageManager);
+document.getElementById("openAddCustomer").addEventListener("click", () => {
+    document.getElementById("addCustomerModal").classList.remove("hidden");
+    renderStageOptions();
+});
+document.getElementById("cancelAddCustomer").addEventListener("click", () => {
+    document.getElementById("addCustomerModal").classList.add("hidden");
+});
+document.getElementById("saveAddCustomer").addEventListener("click", addCustomer);
+document.getElementById("closeContactModal").addEventListener("click", () => {
+    document.getElementById("contactModal").classList.add("hidden");
+});
+document.getElementById("contactModal").addEventListener("click", (e) => {
+    if (e.target.id === "contactModal") document.getElementById("contactModal").classList.add("hidden");
+});
+
+// ---------------- Initialize ----------------
+fetchStages();
+fetchCustomers();
+
+</script>
+
+</body>
+</html>

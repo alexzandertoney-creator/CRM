@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Customer Page</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dayjs/dayjs.min.js"></script>
+  <link
+    href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css"
+    rel="stylesheet"
+  />
+</head>
+<body class="bg-gray-50 p-6 relative">
+
+  <!-- Header Section -->
+  <div class="flex justify-between items-center mb-2">
+    <a href="index.html" class="text-blue-600 hover:underline">← Back to Dashboard</a>
+    <div class="flex justify-end items-center gap-2 mb-4">
+      <button id="editCustomerBtn" class="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded shadow">
+        ✏️ Edit
+      </button>
+      <button id="deleteCustomerBtn" class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded shadow">
+        🗑️ Delete
+      </button>
+      <button id="sendEmailBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg">
+        ✉️ Send Email
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Flex Container -->
+  <div class="flex gap-6 mt-6">
+
+    <!-- Left Content -->
+    <div class="flex-1 space-y-6">
+
+      <!-- Customer Info -->
+      <div>
+        <h1 class="text-3xl font-bold mb-2" id="customerName">Company Name</h1>
+        <p class="mb-1"><strong>Main Contact:</strong> <span id="customerMainContact"></span></p>
+        <p class="mb-2"><strong>Email:</strong> <span id="customerEmail"></span></p>
+        <p class="mb-2"><strong>Phone:</strong> <span id="customerPhoneNumber"></span></p>
+
+        <p class="mb-2">
+          <strong>Next Step:</strong>
+          <input type="text" id="nextStep" class="border p-1 rounded" />
+          <button id="saveNextStep" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded ml-2">
+            💾 Save
+          </button>
+        </p>
+
+        <p class="mb-4">
+          <strong>Next Action Date:</strong>
+          <input type="date" id="nextActionDate" class="border p-1 rounded" />
+          <button id="saveNextActionDate" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded ml-2">
+            💾 Save
+          </button>
+        </p>
+
+        <p class="mb-4">
+          <strong>Stage:</strong>
+          <select id="stageSelect" class="border p-1 rounded"></select>
+          <button id="saveStage" class="bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded ml-2">
+            💾 Save
+          </button>
+        </p>
+      </div>
+
+    
+<!-- Contacts Section -->
+<div class="bg-white shadow-md rounded-lg p-4">
+  <h2 class="text-xl font-semibold mb-3 text-gray-700">Contacts</h2>
+
+  <div class="flex flex-wrap gap-2 mb-4">
+    <input id="contactName" type="text" placeholder="Name" class="border rounded-lg p-2 flex-1 min-w-[150px]" />
+    <input id="contactEmail" type="email" placeholder="Email" class="border rounded-lg p-2 flex-1 min-w-[150px]" />
+    <input id="contactPhoneNumber" type="text" placeholder="Phone" class="border rounded-lg p-2 flex-1 min-w-[150px]" />
+    <input id="contactPosition" type="text" placeholder="Position" class="border rounded-lg p-2 flex-1 min-w-[150px]" />
+    <button id="addContactBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+      Add
+    </button>
+  </div>
+
+  <!-- Table wrapper for horizontal scroll -->
+  <div class="overflow-x-auto overflow-y-visible relative">
+    <table class="table-auto w-full border-collapse bg-white shadow rounded-lg min-w-[600px]">
+      <thead class="bg-gray-200 text-gray-700">
+        <tr>
+          <th class="p-2 text-left">Name</th>
+          <th class="p-2 text-left">Email</th>
+          <th class="p-2 text-left">Phone</th>
+          <th class="p-2 text-left">Position</th>
+          <th class="p-2 text-center">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="contactTable"></tbody>
+    </table>
+  </div>
+</div>
+
+
+      <!-- Documents Section -->
+      <div class="bg-white shadow-md rounded-lg p-4">
+        <h2 class="text-xl font-bold mb-4">📂 Documents</h2>
+        <form id="uploadForm" class="flex items-center space-x-4 mb-4" enctype="multipart/form-data">
+          <input type="file" id="documentFile" name="file" class="border rounded px-3 py-2 w-full" />
+          <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded">
+            ⬆️ Upload
+          </button>
+        </form>
+        <ul id="documentList" class="list-disc pl-5"></ul>
+      </div>
+
+      <!-- Sent Emails Section -->
+      <div>
+  <h2 class="text-xl font-semibold mt-6">📨 Sent Emails</h2>
+  <ul
+    id="sentEmailsList"
+    class="bg-white rounded-lg shadow p-4 mt-2 max-h-72 overflow-y-auto"
+  ></ul>
+</div>
+    </div>
+
+    <!-- Right: Notes Section -->
+    <div class="w-80" style="margin-top: 285px;">
+      <div class="bg-white shadow-md rounded-lg p-4">
+        <h2 class="text-xl font-semibold mb-4 text-gray-700">Notes</h2>
+        <div class="flex gap-2 mb-4">
+          <input id="noteInput" type="text" placeholder="Enter a new note..." class="border rounded-lg p-2 flex-1" />
+          <button id="addNoteBtn" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+            Add Note
+          </button>
+        </div>
+        <div id="notesList" class="space-y-2 max-h-[70vh] overflow-y-auto"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <!-- Edit Contact Modal -->
+  <div id="editContactModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center">
+    <div class="bg-white rounded-lg shadow-lg p-6 w-96 relative">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Edit Contact</h2>
+      <input id="editContactName" type="text" placeholder="Name" class="border rounded-lg p-2 w-full mb-2" />
+      <input id="editContactEmail" type="email" placeholder="Email" class="border rounded-lg p-2 w-full mb-2" />
+      <input id="editContactPhone" type="text" placeholder="Phone" class="border rounded-lg p-2 w-full mb-2" />
+      <input id="editContactPosition" type="text" placeholder="Position" class="border rounded-lg p-2 w-full mb-4" />
+      <div class="flex justify-end gap-2">
+        <button id="cancelEditContact" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+        <button id="saveEditContact" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Customer Modal -->
+  <div id="editCustomerModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center z-50">
+    <div class="bg-white rounded-lg shadow-lg p-6 w-96 relative">
+      <h2 class="text-xl font-semibold mb-4 text-gray-700">Edit Customer</h2>
+      <!-- Customer edit inputs -->
+<input id="editCompanyName" type="text" placeholder="Company name" class="border rounded-lg p-2 w-full mb-2" />
+<input id="editMainContact" type="text" placeholder="Main contact" class="border rounded-lg p-2 w-full mb-2" />
+<input id="editCustomerEmail" type="email" placeholder="Email" class="border rounded-lg p-2 w-full mb-2" />
+<input id="editCustomerPhoneNumber" type="text" placeholder="Phone number" class="border rounded-lg p-2 w-full mb-2" />
+
+<label class="block mb-1 mt-2 text-sm">Next step</label>
+<input id="editNextStep" type="text" placeholder="Next step" class="border rounded-lg p-2 w-full mb-2" />
+
+<label class="block mb-1 mt-2 text-sm">Next action date</label>
+<input id="editNextActionDate" type="date" class="border rounded-lg p-2 w-full mb-2" />
+
+<label class="block mb-1 mt-2 text-sm">Stage</label>
+<select id="editStageSelect" class="border rounded-lg p-2 w-full mb-4"></select>
+
+      <div class="flex justify-end gap-2">
+        <button id="cancelEditCustomer" class="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400">Cancel</button>
+        <button id="saveEditCustomer" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send Email Modal -->
+  <div id="emailModal" class="hidden fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center">
+    <div class="bg-white p-6 rounded-lg shadow-lg w-96">
+      <h2 class="text-xl font-semibold mb-4">Send Email</h2>
+
+      <label class="block mb-2">Recipients:</label>
+      <div id="recipientList" class="mb-2 flex flex-col gap-1">
+        <input type="email" class="recipientInput border rounded w-full p-2" placeholder="Enter recipient email" />
+      </div>
+      <button id="addRecipientBtn" class="bg-blue-500 text-white px-2 py-1 rounded mb-4">
+        + Add Recipient
+      </button>
+
+      <label class="block mb-2">Template:</label>
+      <select id="templateSelect" class="border rounded w-full p-2 mb-4"></select>
+
+      <label class="block mb-2">Subject:</label>
+      <input id="emailSubject" class="border rounded w-full p-2 mb-4" />
+
+      <label class="block mb-2">Body:</label>
+      <textarea id="emailBody" rows="6" class="border rounded w-full p-2 mb-4"></textarea>
+
+      <div class="flex justify-end gap-2">
+        <button id="cancelEmailBtn" class="px-4 py-2 bg-gray-400 text-white rounded-lg">Cancel</button>
+        <button id="confirmSendEmailBtn" class="px-4 py-2 bg-green-600 text-white rounded-lg">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Load JS -->
+  <script src="js/customer.js"></script>
+</body>
+</html>

@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Email Templates</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-50 p-6">
+  <div class="max-w-5xl mx-auto">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-3xl font-bold text-gray-800">📧 Email Templates</h1>
+      <div class="flex gap-2">
+        <a href="index.html" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded-lg">
+          ← Back to Dashboard
+        </a>
+        <button id="openAddModal" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg">
+          + Add Template
+        </button>
+      </div>
+    </div>
+
+    <!-- Templates Table -->
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+      <table class="w-full border-collapse">
+        <thead class="bg-gray-200 text-gray-700">
+          <tr>
+            <th class="p-3 text-left">Name</th>
+            <th class="p-3 text-left">Subject</th>
+            <th class="p-3 text-left">Preview</th>
+            <th class="p-3 text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="templateTable"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Add/Edit Modal -->
+  <div id="templateModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex justify-center items-center p-4">
+    <div class="bg-white rounded-lg shadow-lg p-6 w-full max-w-lg relative">
+      <h2 id="modalTitle" class="text-xl font-semibold mb-4 text-gray-700">Add Template</h2>
+      <input id="templateName" type="text" placeholder="Template Name" class="border rounded-lg p-2 w-full mb-2" />
+      <input id="templateSubject" type="text" placeholder="Subject" class="border rounded-lg p-2 w-full mb-2" />
+      <textarea id="templateBody" placeholder="Body (use {{companyName}}, {{mainContact}}, and {{todaysDate}} as placeholders)" class="border rounded-lg p-2 w-full h-48 mb-4"></textarea>
+      
+      <div class="flex justify-end gap-2">
+        <button id="cancelModal" class="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded">Cancel</button>
+        <button id="saveTemplate" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = "http://localhost:8080/api/email-templates";
+    let templates = [];
+    let editId = null;
+
+    // ---------------- Fetch & Render ----------------
+    async function fetchTemplates() {
+      try {
+        const res = await axios.get(API_URL);
+        templates = res.data;
+        renderTable();
+      } catch (err) {
+        console.error("Error fetching templates:", err);
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById("templateTable");
+      tbody.innerHTML = "";
+      templates.forEach(t => {
+        const row = document.createElement("tr");
+        row.className = "border-b hover:bg-gray-50";
+        row.innerHTML = `
+          <td class="p-3">${t.name}</td>
+          <td class="p-3">${t.subject}</td>
+          <td class="p-3 text-gray-600 truncate max-w-xs">${t.body.substring(0, 60)}...</td>
+          <td class="p-3 text-center">
+            <button onclick="editTemplate(${t.id})" class="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded">Edit</button>
+            <button onclick="deleteTemplate(${t.id})" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded ml-2">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // ---------------- Add/Edit Modal ----------------
+    const modal = document.getElementById("templateModal");
+    const modalTitle = document.getElementById("modalTitle");
+    const nameInput = document.getElementById("templateName");
+    const subjectInput = document.getElementById("templateSubject");
+    const bodyInput = document.getElementById("templateBody");
+
+    document.getElementById("openAddModal").addEventListener("click", () => {
+      editId = null;
+      modalTitle.textContent = "Add Template";
+      nameInput.value = "";
+      subjectInput.value = "";
+      bodyInput.value = "";
+      modal.classList.remove("hidden");
+    });
+
+    document.getElementById("cancelModal").addEventListener("click", () => {
+      modal.classList.add("hidden");
+    });
+
+    document.getElementById("saveTemplate").addEventListener("click", async () => {
+      const name = nameInput.value.trim();
+      const subject = subjectInput.value.trim();
+      const body = bodyInput.value.trim();
+      if (!name || !subject || !body) {
+        alert("All fields are required!");
+        return;
+      }
+
+      const template = { name, subject, body };
+
+      try {
+        if (editId) {
+          await axios.put(`${API_URL}/${editId}`, template);
+        } else {
+          await axios.post(API_URL, template);
+        }
+        modal.classList.add("hidden");
+        fetchTemplates();
+      } catch (err) {
+        console.error("Error saving template:", err);
+      }
+    });
+
+    // ---------------- Edit & Delete ----------------
+    function editTemplate(id) {
+      const template = templates.find(t => t.id === id);
+      if (!template) return;
+      editId = id;
+      modalTitle.textContent = "Edit Template";
+      nameInput.value = template.name;
+      subjectInput.value = template.subject;
+      bodyInput.value = template.body;
+      modal.classList.remove("hidden");
+    }
+
+    async function deleteTemplate(id) {
+      if (!confirm("Are you sure you want to delete this template?")) return;
+      try {
+        await axios.delete(`${API_URL}/${id}`);
+        fetchTemplates();
+      } catch (err) {
+        console.error("Error deleting template:", err);
+      }
+    }
+
+    // ---------------- Init ----------------
+    fetchTemplates();
+  </script>
+</body>
+</html>

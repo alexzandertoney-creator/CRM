@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRM Analytics Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen p-6">
+
+  <!-- Header -->
+  <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
+    <a href="index.html" class="text-blue-600 hover:underline mb-2 sm:mb-0">← Back to Dashboard</a>
+    <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-2">📊 Analytics Dashboard</h1>
+  </header>
+
+  <!-- Time Range Toggle -->
+  <section class="flex flex-wrap gap-2 mb-8 items-center">
+    <span class="font-semibold text-gray-700 mr-2">Time Range:</span>
+    <button class="time-range-btn px-4 py-1 rounded bg-blue-500 text-white" data-days="30">Last 30 Days</button>
+    <button class="time-range-btn px-4 py-1 rounded bg-gray-300 text-gray-800" data-days="60">Last 60 Days</button>
+    <button class="time-range-btn px-4 py-1 rounded bg-gray-300 text-gray-800" data-days="90">Last 90 Days</button>
+  </section>
+
+  <!-- Summary Cards -->
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+    <div class="summary-card">
+      <p class="text-gray-500 font-semibold">Total Customers</p>
+      <p class="text-2xl font-bold" id="totalCustomers">0</p>
+    </div>
+    <div class="summary-card">
+      <p class="text-gray-500 font-semibold">Upcoming Actions (7 days)</p>
+      <p class="text-2xl font-bold" id="upcomingActions">0</p>
+    </div>
+    <div class="summary-card">
+      <p class="text-gray-500 font-semibold">Overdue Actions</p>
+      <p class="text-2xl font-bold" id="overdueActions">0</p>
+    </div>
+    <div class="summary-card">
+      <p class="text-gray-500 font-semibold">Customers Without Next Step</p>
+      <p class="text-2xl font-bold" id="noNextStep">0</p>
+    </div>
+  </section>
+
+ <!-- Charts Section -->
+<main class="grid grid-cols-1 lg:grid-cols-1 gap-8">
+  <div class="chart-card max-w-3xl mx-auto">
+    <h2 class="text-xl font-semibold mb-4 text-gray-700 text-center">Customers by Stage</h2>
+    <canvas id="stageChart" class="w-full h-72"></canvas>
+  </div>
+
+  <div class="chart-card max-w-3xl mx-auto">
+    <h2 class="text-xl font-semibold mb-4 text-gray-700 text-center">Upcoming Action Dates</h2>
+    <canvas id="actionChart" class="w-full h-72"></canvas>
+  </div>
+
+  <div class="chart-card max-w-5xl mx-auto">
+    <h2 class="text-xl font-semibold mb-4 text-gray-700 text-center">New Customers Over Time</h2>
+    <canvas id="newCustomerChart" class="w-full h-80"></canvas>
+  </div>
+</main>
+
+
+
+  <script>
+  const API_URL = "http://localhost:8080/api/customers";
+  const STAGES_API = "http://localhost:8080/api/stages";
+
+  let customers = [];
+  let stages = [];
+  let timeRangeDays = 30;
+
+  let stageChartInstance, actionChartInstance, newCustomerChartInstance;
+
+  // ---------------- Fetch Data ----------------
+  async function fetchData() {
+    try {
+      const [customerRes, stageRes] = await Promise.all([axios.get(API_URL), axios.get(STAGES_API)]);
+      customers = customerRes.data;
+      stages = stageRes.data;
+
+      customers.forEach(c => {
+        if (!c.createdDate) {
+          const daysAgo = Math.floor(Math.random() * 90);
+          c.createdDate = new Date(Date.now() - daysAgo * 24*60*60*1000).toISOString().split('T')[0];
+        }
+      });
+
+      renderAll();
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    }
+  }
+
+  // ---------------- Render Summary ----------------
+  function renderSummary() {
+    const today = new Date();
+    const in7Days = new Date(); in7Days.setDate(today.getDate() + 7);
+
+    const total = customers.length;
+    const upcoming = customers.filter(c => c.nextActionDate && new Date(c.nextActionDate) >= today && new Date(c.nextActionDate) <= in7Days).length;
+    const overdue = customers.filter(c => c.nextActionDate && new Date(c.nextActionDate) < today).length;
+    const noNextStep = customers.filter(c => !c.nextStep).length;
+
+    document.getElementById("totalCustomers").innerText = total;
+    document.getElementById("upcomingActions").innerText = upcoming;
+    document.getElementById("overdueActions").innerText = overdue;
+    document.getElementById("noNextStep").innerText = noNextStep;
+  }
+
+  // ---------------- Chart Rendering ----------------
+  function renderStageChart() {
+    const ctx = document.getElementById('stageChart').getContext('2d');
+    const counts = stages.map(stage => customers.filter(c => c.stage?.id === stage.id).length);
+    const colors = stages.map((_, i) => `hsl(${i*60 % 360}, 70%, 50%)`);
+
+    if(stageChartInstance) stageChartInstance.destroy();
+    stageChartInstance = new Chart(ctx, {
+      type: 'pie',
+      data: { labels: stages.map(s => s.name), datasets: [{ data: counts, backgroundColor: colors }] },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  function renderActionChart() {
+    const ctx = document.getElementById('actionChart').getContext('2d');
+    const today = new Date();
+    const endDate = new Date(); endDate.setDate(today.getDate() + timeRangeDays);
+
+    const upcomingDates = {};
+    customers.forEach(c => {
+      if (c.nextActionDate) {
+        const dateObj = new Date(c.nextActionDate);
+        if (dateObj >= today && dateObj <= endDate) {
+          upcomingDates[c.nextActionDate] = (upcomingDates[c.nextActionDate] || 0) + 1;
+        }
+      }
+    });
+
+    const labels = Object.keys(upcomingDates).sort();
+    const data = labels.map(d => upcomingDates[d]);
+
+    if(actionChartInstance) actionChartInstance.destroy();
+    actionChartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Upcoming Actions', data, backgroundColor: 'rgba(59, 130, 246, 0.7)' }] },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+
+  function renderNewCustomerChart() {
+    const ctx = document.getElementById('newCustomerChart').getContext('2d');
+    const startDate = new Date(); startDate.setDate(startDate.getDate() - timeRangeDays);
+
+    const countByDay = {};
+    customers.forEach(c => {
+      const dateObj = new Date(c.createdDate);
+      if(dateObj >= startDate) {
+        const date = c.createdDate.split('T')[0];
+        countByDay[date] = (countByDay[date] || 0) + 1;
+      }
+    });
+
+    const labels = Object.keys(countByDay).sort();
+    const data = labels.map(d => countByDay[d]);
+
+    if(newCustomerChartInstance) newCustomerChartInstance.destroy();
+    newCustomerChartInstance = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{
+          label: 'New Customers',
+          data,
+          borderColor: 'rgba(16, 185, 129, 0.8)',
+          backgroundColor: 'rgba(16, 185, 129, 0.2)',
+          fill: true
+        }]
+      },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+
+  function renderAll() {
+    renderSummary();
+    renderStageChart();
+    renderActionChart();
+    renderNewCustomerChart();
+  }
+
+  // ---------------- Time Range Buttons ----------------
+  document.querySelectorAll(".time-range-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      timeRangeDays = parseInt(btn.dataset.days);
+      document.querySelectorAll(".time-range-btn").forEach(b => {
+        b.classList.replace("bg-blue-500", "bg-gray-300");
+        b.classList.replace("text-white","text-gray-800");
+      });
+      btn.classList.replace("bg-gray-300","bg-blue-500");
+      btn.classList.replace("text-gray-800","text-white");
+      renderAll();
+    });
+  });
+
+  // ---------------- Init ----------------
+  fetchData();
+  </script>
+
+  <style>
+    .summary-card { @apply bg-white shadow-md rounded-lg p-4; }
+    .chart-card { @apply bg-white shadow-md rounded-lg p-4; }
+  </style>
+
+</body>
+</html>
